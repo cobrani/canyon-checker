@@ -21,7 +21,7 @@ The size is considered available only when the matching element:
 
 Canyon uses `productConfiguration__selectVariant--unpurchasable` and `productConfiguration__selectVariant--notifyMe` for an unavailable option, so those states are treated as unavailable.
 
-The watcher sends a notification only when the state changes from unavailable to available. It does not repeatedly send messages every time the polling interval runs. A network or HTTP error is logged and retried on the next poll.
+The watcher sends an availability notification only when the state changes from unavailable to available. It does not repeatedly send that alert every time the polling interval runs. It also sends a running-status heartbeat every hour by default, so you can tell that the process is still alive. A network or HTTP error is logged and retried on the next poll.
 
 This tool does not use a browser or Playwright. It only sees the HTML returned by Canyon. If Canyon moves the availability information entirely into client-side JavaScript, the checker will need a browser-based implementation.
 
@@ -68,6 +68,9 @@ BIKE_SIZE=L
 
 # Polling interval in seconds. Minimum: 10. Default: 300.
 POLL_INTERVAL_SECONDS=300
+
+# Running-status notification interval in seconds. Minimum: 10. Default: 3600 (one hour).
+HEARTBEAT_INTERVAL_SECONDS=3600
 
 # Optional generic JSON webhook. Leave empty to disable.
 WEBHOOK_URL=

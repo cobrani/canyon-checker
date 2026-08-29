@@ -4,6 +4,9 @@ import { checkStock } from "./checker.js"
 const url = process.env.PRODUCT_URL
 const bikeSize = process.env.BIKE_SIZE
 const intervalSeconds = Number(process.env.POLL_INTERVAL_SECONDS ?? 300)
+const heartbeatIntervalSeconds = Number(
+  process.env.HEARTBEAT_INTERVAL_SECONDS ?? 3600,
+)
 const webhookUrl = process.env.WEBHOOK_URL
 const signalApiUrl = process.env.SIGNAL_API_URL
 const signalSender = process.env.SIGNAL_SENDER
@@ -19,6 +22,14 @@ const size = bikeSize
 
 if (!Number.isFinite(intervalSeconds) || intervalSeconds < 10) {
   console.error("POLL_INTERVAL_SECONDS must be at least 10.")
+  process.exit(1)
+}
+
+if (
+  !Number.isFinite(heartbeatIntervalSeconds) ||
+  heartbeatIntervalSeconds < 10
+) {
+  console.error("HEARTBEAT_INTERVAL_SECONDS must be at least 10.")
   process.exit(1)
 }
 
@@ -47,9 +58,7 @@ async function sendSignalNotification(message: string): Promise<void> {
   }
 }
 
-async function notify(): Promise<void> {
-  const message = `Canyon stock available for ${size}: ${productUrl}`
-
+async function notify(message: string): Promise<void> {
   if (webhookUrl) {
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -61,9 +70,7 @@ async function notify(): Promise<void> {
     console.log("Webhook notification sent")
   }
 
-  if (signalApiUrl && signalSender && signalRecipient) {
-    await sendSignalNotification(message)
-  }
+  await sendSignalNotification(message)
 }
 
 async function poll(): Promise<void> {
@@ -72,7 +79,9 @@ async function poll(): Promise<void> {
     console.log(
       `${new Date().toISOString()} ${available ? "AVAILABLE" : "not available"} (${size})`,
     )
-    if (available && previousState !== true) await notify()
+    if (available && previousState !== true) {
+      await notify(`Canyon stock available for ${size}: ${productUrl}`)
+    }
     previousState = available
   } catch (error) {
     console.error(
@@ -84,9 +93,22 @@ async function poll(): Promise<void> {
 
 console.log(`Watching ${productUrl} for size ${size} every ${intervalSeconds}s`)
 await poll()
-await sendSignalNotification(
+await notify(
   `Canyon stock watcher started for ${size}: ${productUrl}.` +
     `Current state: ${previousState ? "AVAILABLE" : "not available"}`,
 )
 
 setInterval(() => void poll(), intervalSeconds * 1_000)
+setInterval(
+  () =>
+    void notify(
+      `Canyon stock watcher is still running for ${size}.` +
+        ` Current state: ${previousState ? "AVAILABLE" : "not available"}`,
+    ).catch((error: unknown) => {
+      console.error(
+        "Heartbeat notification failed:",
+        error instanceof Error ? error.message : error,
+      )
+    }),
+  heartbeatIntervalSeconds * 1_000,
+)
